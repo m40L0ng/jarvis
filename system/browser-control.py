@@ -42,10 +42,35 @@ def err(cmd, msg):
 
 import urllib.request
 import urllib.error
+import re
+from urllib.parse import urlparse, urlunparse
+
+
+def build_validated_url(base_url: str) -> str:
+    try:
+        # Minimal path validation
+        if "/../" in base_url or re.search(r"/%2e%2e/", base_url, re.IGNORECASE):
+            raise ValueError("Invalid path")
+        
+        parsed = urlparse(base_url)
+        
+        # Protocol + host checks
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError("Invalid protocol")
+        if not parsed.hostname:
+            raise ValueError("Invalid host")
+        allowed_domains = ["localhost", "127.0.0.1"]
+        if parsed.hostname.lower() not in allowed_domains:
+            raise ValueError("Invalid host")
+        
+        return urlunparse(parsed)
+    except Exception:
+        raise ValueError("Invalid URL")
 
 
 def http_get_json(url, timeout=5):
-    req = urllib.request.Request(url)
+    validated_url = build_validated_url(url)
+    req = urllib.request.Request(validated_url)
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
