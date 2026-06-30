@@ -61,7 +61,7 @@ class L5SquadProcessor extends LayerProcessor {
 
     // 1. Resolve squads/ directory (sibling of .synapse/)
     const projectRoot = path.dirname(synapsePath);
-    const squadsDir = path.join(projectRoot, 'squads');
+    const squadsDir = path.resolve(path.join(projectRoot, 'squads'));
 
     // Graceful: missing squads/ directory
     if (!fs.existsSync(squadsDir)) {
@@ -69,7 +69,8 @@ class L5SquadProcessor extends LayerProcessor {
     }
 
     // 2. Check cache
-    const cacheDir = path.join(synapsePath, 'cache');
+    const resolvedSynapsePath = path.resolve(synapsePath);
+    const cacheDir = path.resolve(resolvedSynapsePath, 'cache');
     const cachePath = path.join(cacheDir, 'squad-manifests.json');
     const cachedData = this._readCache(cachePath);
 
@@ -137,7 +138,7 @@ class L5SquadProcessor extends LayerProcessor {
    */
   _loadSquadDomains(squadName, manifest, squadsDir, allRules, domainsLoaded) {
     const squadUpper = squadName.toUpperCase();
-    const squadSynapsePath = path.join(squadsDir, squadName, '.synapse');
+    const squadSynapsePath = path.resolve(squadsDir, squadName, '.synapse');
 
     // Check merge mode from {SQUAD}_EXTENDS key
     const extendsKey = `${squadUpper}_EXTENDS`;
@@ -155,8 +156,13 @@ class L5SquadProcessor extends LayerProcessor {
 
       const namespacedKey = `${squadUpper}_${domainKey}`;
       const domainFile = domain.file
-        ? path.join(squadSynapsePath, domain.file)
-        : path.join(squadSynapsePath, domainKey.toLowerCase().replace(/_/g, '-'));
+        ? path.resolve(squadSynapsePath, domain.file)
+        : path.resolve(squadSynapsePath, domainKey.toLowerCase().replace(/_/g, '-'));
+
+      const relativePath = path.relative(squadSynapsePath, domainFile);
+      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+        throw new Error('Invalid file path');
+      }
 
       const rules = loadDomainFile(domainFile);
       if (rules && rules.length > 0) {
@@ -175,6 +181,7 @@ class L5SquadProcessor extends LayerProcessor {
    */
   _readCache(cachePath) {
     try {
+      if (cachePath.includes('..') || path.isAbsolute(cachePath)) return null;
       const raw = fs.readFileSync(cachePath, 'utf8');
       const cached = JSON.parse(raw);
       if (cached.timestamp && (Date.now() - cached.timestamp) < CACHE_TTL_MS) {
@@ -228,7 +235,11 @@ class L5SquadProcessor extends LayerProcessor {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
 
-      const manifestPath = path.join(squadsDir, entry.name, '.synapse', 'manifest');
+      const base = path.resolve(squadsDir);
+      const target = path.resolve(base, entry.name, '.synapse', 'manifest');
+      const relative = path.relative(base, target);
+      if (relative.startsWith('..') || path.isAbsolute(relative)) continue;
+      const manifestPath = target;
       if (!fs.existsSync(manifestPath)) continue;
 
       const parsed = parseManifest(manifestPath);
