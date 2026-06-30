@@ -49,7 +49,15 @@ const GLOBAL_KEYS = ['DEVMODE', 'GLOBAL_EXCLUDE'];
 function parseManifest(manifestPath) {
   let content;
   try {
-    content = fs.readFileSync(manifestPath, 'utf8');
+    const resolvedPath = path.resolve(manifestPath);
+    if (path.isAbsolute(manifestPath) || manifestPath.includes('..')) {
+      return {
+        devmode: false,
+        globalExclude: [],
+        domains: {},
+      };
+    }
+    content = fs.readFileSync(resolvedPath, 'utf8');
   } catch (_error) {
     // Graceful degradation: missing manifest = empty config
     return {
@@ -157,6 +165,9 @@ function parseManifest(manifestPath) {
 function loadDomainFile(domainPath) {
   let content;
   try {
+    if (domainPath.includes('..') || path.isAbsolute(domainPath)) {
+      return [];
+    }
     content = fs.readFileSync(domainPath, 'utf8');
   } catch (_error) {
     return []; // Graceful: missing file = empty rules
