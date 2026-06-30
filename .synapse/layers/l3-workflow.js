@@ -65,9 +65,14 @@ class L3WorkflowProcessor extends LayerProcessor {
 
     // 3. Load domain file
     const domain = manifest.domains[domainKey];
-    const domainFile = domain.file
-      ? path.join(synapsePath, domain.file)
-      : path.join(synapsePath, `workflow-${workflowId}`);
+    const base = path.resolve(synapsePath);
+    const userInput = domain.file || `workflow-${workflowId}`;
+    const target = path.resolve(base, userInput);
+    const relative = path.relative(base, target);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      return null;
+    }
+    const domainFile = target;
 
     const rules = loadDomainFile(domainFile);
 
