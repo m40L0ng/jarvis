@@ -93,7 +93,13 @@ function ensureDir(dirPath) {
  * @param {string} synapsePath - Path to .synapse/ directory
  */
 function ensureGitignore(synapsePath) {
-  const gitignorePath = path.join(synapsePath, '.gitignore');
+  const base = path.resolve(synapsePath);
+  const target = path.resolve(base, '.gitignore');
+  const rel = path.relative(base, target);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) {
+    throw new Error('Invalid path');
+  }
+  const gitignorePath = target;
 
   if (fs.existsSync(gitignorePath)) {
     return;
@@ -122,7 +128,8 @@ function ensureGitignore(synapsePath) {
  * @returns {object} Created session object
  */
 function createSession(sessionId, cwd, sessionsDir) {
-  const dir = sessionsDir || path.join(cwd, '.synapse', 'sessions');
+  const base = path.resolve(cwd, '.synapse', 'sessions');
+  const dir = sessionsDir ? (() => { const target = path.resolve(base, sessionsDir); const rel = path.relative(base, target); if (rel.startsWith('..') || path.isAbsolute(rel)) { throw new Error('Invalid sessions directory'); } return target; })() : base;
   ensureDir(dir);
 
   // Ensure .gitignore exists in .synapse/
@@ -317,12 +324,18 @@ function cleanStaleSessions(sessionsDir, maxAgeHours = DEFAULT_MAX_AGE_HOURS) {
     return 0;
   }
 
+  const base = path.resolve(sessionsDir);
+
   for (const file of files) {
     if (!file.endsWith('.json')) {
       continue;
     }
 
-    const filePath = path.join(sessionsDir, file);
+    const filePath = path.resolve(base, file);
+    const relative = path.relative(base, filePath);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      continue;
+    }
 
     try {
       const raw = fs.readFileSync(filePath, 'utf8');
