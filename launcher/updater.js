@@ -87,7 +87,12 @@ async function checkForUpdate(jarvisDir) {
     const remoteVersion = Buffer.from(result.content, 'base64').toString().trim();
 
     // Lê VERSION.txt local
-    const localVersionFile = path.join(jarvisDir, 'VERSION.txt');
+    const base = path.resolve(jarvisDir);
+    const localVersionFile = path.resolve(base, 'VERSION.txt');
+    const relative = path.relative(base, localVersionFile);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      return { hasUpdate: false, error: 'Invalid path' };
+    }
     let localVersion = '0.0.0';
     if (fs.existsSync(localVersionFile)) {
       localVersion = fs.readFileSync(localVersionFile, 'utf8').trim();
@@ -182,7 +187,12 @@ function extractAndApply(zipPath, jarvisDir) {
     }
 
     // Escreve arquivo
-    const targetPath = path.join(jarvisDir, normalizedPath);
+    const base = path.resolve(jarvisDir);
+    const targetPath = path.resolve(base, normalizedPath);
+    const relative = path.relative(base, targetPath);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error('Caminho inválido');
+    }
     const targetDir = path.dirname(targetPath);
     if (!fs.existsSync(targetDir)) {
       fs.mkdirSync(targetDir, { recursive: true });
