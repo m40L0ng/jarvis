@@ -51,9 +51,14 @@ class L0ConstitutionProcessor extends LayerProcessor {
     const domain = domainKey ? manifest.domains[domainKey] : null;
 
     // Determine domain file path
-    const domainFile = domain && domain.file
-      ? path.join(synapsePath, domain.file)
-      : path.join(synapsePath, 'constitution');
+    const base = path.resolve(synapsePath);
+    const userInput = domain && domain.file ? domain.file : 'constitution';
+    const target = path.resolve(base, userInput);
+    const relative = path.relative(base, target);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      return null;
+    }
+    const domainFile = target;
 
     // Load rules from domain file
     const rules = loadDomainFile(domainFile);
