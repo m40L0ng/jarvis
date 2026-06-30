@@ -52,11 +52,11 @@ class L1GlobalProcessor extends LayerProcessor {
     const contextDomain = this._findDomain(manifest, 'CONTEXT');
 
     const globalFile = globalDomain && globalDomain.file
-      ? path.join(synapsePath, globalDomain.file)
+      ? this._validatePath(synapsePath, globalDomain.file)
       : path.join(synapsePath, 'global');
 
     const contextFile = contextDomain && contextDomain.file
-      ? path.join(synapsePath, contextDomain.file)
+      ? this._validatePath(synapsePath, contextDomain.file)
       : path.join(synapsePath, 'context');
 
     // Load rules from both domain files
@@ -96,6 +96,26 @@ class L1GlobalProcessor extends LayerProcessor {
     const key = Object.keys(manifest.domains || {})
       .find(k => k.toUpperCase() === name.toUpperCase());
     return key ? manifest.domains[key] : null;
+  }
+
+  /**
+   * Validate that a file path is contained within the base directory.
+   *
+   * @param {string} base - Base directory path
+   * @param {string} userInput - User-provided file path
+   * @returns {string} Validated absolute path
+   * @private
+   */
+  _validatePath(base, userInput) {
+    const resolvedBase = path.resolve(base);
+    const resolvedTarget = path.resolve(resolvedBase, userInput);
+    const relative = path.relative(resolvedBase, resolvedTarget);
+    
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new Error('Invalid file path');
+    }
+    
+    return resolvedTarget;
   }
 }
 
